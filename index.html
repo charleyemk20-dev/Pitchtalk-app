@@ -6,6 +6,12 @@
 <meta name="theme-color" content="#0b6e3a">
 <meta name="description" content="PitchTalk: predict matches, vote in fan polls, compare players and talk football with fans of your club.">
 <title>PitchTalk</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="PitchTalk">
 <style>
 :root{
   --green:#0b6e3a; --green-d:#064e2a; --green-l:#e3f3ea;
@@ -122,7 +128,7 @@ const DEMO_FANS = [
 const BAD = ["fuck","shit","bitch","idiot","stupid","bastard"];
 
 /* ---------- state ---------- */
-function fresh(){return {user:null,club:null,preds:{},fixtures:[],votes:{},pollExtra:{},posts:[],tab:"predict",cmp:[0,1]}}
+function fresh(){return {user:null,club:null,preds:{},fixtures:[],votes:{},pollExtra:{},posts:[],tab:"predict",cmp:[0,1],hideInstall:false}}
 function load(){try{const v=JSON.parse(localStorage.getItem(KEY));return v&&typeof v==="object"?Object.assign(fresh(),v):fresh()}catch(e){return fresh()}}
 function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
 let S = load();
@@ -181,6 +187,25 @@ function viewOnboard(){
     </div></div>`;
 }
 
+/* ---------- install helpers ---------- */
+let deferredPrompt = null;
+const isStandalone = () => (window.matchMedia && matchMedia("(display-mode: standalone)").matches) || navigator.standalone === true;
+const isIOS = () => /iphone|ipad|ipod/i.test(navigator.userAgent);
+function installCard(){
+  if(isStandalone() || S.hideInstall) return "";
+  if(deferredPrompt){
+    return `<div class="card" style="margin-top:14px"><b>Install PitchTalk</b>
+      <p class="muted" style="margin:4px 0 10px">Add the app to your home screen. It opens full screen, like any other app.</p>
+      <div class="row"><button class="small" data-act="install">Install app</button><button class="ghost small" data-act="dismissinstall">Not now</button></div></div>`;
+  }
+  if(isIOS()){
+    return `<div class="card" style="margin-top:14px"><b>Install PitchTalk</b>
+      <p class="muted" style="margin:4px 0 10px">In Safari, tap the Share button, then <b>Add to Home Screen</b>.</p>
+      <button class="ghost small" data-act="dismissinstall">Got it</button></div>`;
+  }
+  return "";
+}
+
 function viewPredict(){
   const mine = S.fixtures.filter(f=>f.h===S.club||f.a===S.club);
   const rest = S.fixtures.filter(f=>!(f.h===S.club||f.a===S.club));
@@ -204,6 +229,7 @@ function viewPredict(){
       </div>${foot}</div>`;
   };
   return `<div class="wrap">
+    ${installCard()}
     <h2>Predict the score</h2>
     <p class="sub">Exact score = 3 points. Right result (win/draw/lose) = 1 point.</p>
     <div class="note">Demo fixtures: these matches are samples so you can try the app. Real fixtures come when a football data feed is connected.</div>
@@ -342,10 +368,22 @@ document.addEventListener("click",e=>{
     let n=0;
     S.fixtures.forEach(f=>{if(!f.res){f.res={h:Math.floor(Math.random()*4),a:Math.floor(Math.random()*4)};n++}});
     save();toast(n?"Results are in! Check your points":"All matches are already finished");render();
+  }else if(act==="install"){
+    if(!deferredPrompt) return;
+    const dp=deferredPrompt; deferredPrompt=null;
+    dp.prompt();
+    dp.userChoice.then(c=>{toast(c.outcome==="accepted"?"Installing PitchTalk…":"No problem, you can install later");render()}).catch(()=>render());
+  }else if(act==="dismissinstall"){
+    S.hideInstall=true;save();render();
   }else if(act==="reset"){
     if(confirm("Reset all your data on this phone?")){localStorage.removeItem(KEY);S=fresh();render()}
   }
 });
+window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();deferredPrompt=e;if(S.user&&S.tab==="predict")render()});
+window.addEventListener("appinstalled",()=>{deferredPrompt=null;toast("PitchTalk installed ✓");render()});
+if("serviceWorker" in navigator){
+  window.addEventListener("load",()=>{navigator.serviceWorker.register("sw.js").catch(()=>{})});
+}
 render();
 </script>
 </body>
