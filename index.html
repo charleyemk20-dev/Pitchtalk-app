@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0b6e3a">
 <meta name="description" content="PitchTalk: predict matches, vote in fan polls, compare players and talk football with fans of your club.">
-<title>PitchTalk</title>
+<title>PitchTalk: Football Fan Predictions App</title>
 <link rel="manifest" href="manifest.json">
 <link rel="icon" type="image/png" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
@@ -103,17 +103,26 @@ tr.me td{background:var(--green-l);font-weight:800}
 const KEY = "pitchtalk_v1";
 const CLUBS = ["Arsenal","Aston Villa","Bournemouth","Brentford","Brighton","Chelsea","Crystal Palace","Everton","Fulham","Liverpool","Manchester City","Manchester United","Newcastle","Nottingham Forest","Tottenham","West Ham","Wolves","Barcelona","Real Madrid","Other / neutral"];
 
-// SAMPLE players: fictional names and made-up stats for demo purposes only.
-// Replace with real data from a stats API when you are ready.
+// REAL Premier League 2026/27 top scorers (goals and appearances only).
+// Source: soccernews.com, page updated 5 Nov 2026. Update these numbers weekly,
+// or replace this list with data from a stats API.
+const STATS_AS_OF = "5 Nov 2026";
+const STATS_SOURCE = "soccernews.com";
 const PLAYERS = [
-  {n:"Ayo Marlowe",   pos:"Forward",    goals:18, assists:6,  pass:78, tackles:12, mins:2650},
-  {n:"Diego Santanna",pos:"Forward",    goals:15, assists:11, pass:82, tackles:20, mins:2890},
-  {n:"Lars Mendel",   pos:"Midfielder", goals:7,  assists:14, pass:91, tackles:58, mins:3010},
-  {n:"Kofi Brandt",   pos:"Midfielder", goals:5,  assists:9,  pass:88, tackles:74, mins:3200},
-  {n:"Rui Valenca",   pos:"Defender",   goals:3,  assists:4,  pass:89, tackles:96, mins:3300},
-  {n:"Sam Okoro",     pos:"Defender",   goals:2,  assists:6,  pass:84, tackles:88, mins:3150}
-];
-const STAT_ROWS = [["goals","Goals"],["assists","Assists"],["pass","Pass accuracy %"],["tackles","Tackles"],["mins","Minutes played"]];
+  {n:"Erling Haaland",   club:"Manchester City",   apps:9, goals:9},
+  {n:"Alexander Isak",   club:"Liverpool",         apps:8, goals:6},
+  {n:"João Pedro",       club:"Chelsea",           apps:6, goals:5},
+  {n:"Marcus Tavernier", club:"Bournemouth",       apps:9, goals:5},
+  {n:"Morgan Rogers",    club:"Chelsea",           apps:9, goals:5},
+  {n:"Nicolas Jackson",  club:"Aston Villa",       apps:8, goals:5},
+  {n:"Bryan Mbeumo",     club:"Manchester United", apps:9, goals:4},
+  {n:"Evanilson",        club:"Bournemouth",       apps:9, goals:4},
+  {n:"Rayan Cherki",     club:"Manchester City",   apps:9, goals:4},
+  {n:"Thierno Barry",    club:"Everton",           apps:9, goals:4}
+].map(p=>Object.assign(p,{gpg:p.goals/p.apps}));
+// [key, label, showWinner]
+const STAT_ROWS = [["goals","Goals",true],["gpg","Goals per game",true],["apps","Appearances",false]];
+const fmtStat = (k,v) => k==="gpg" ? v.toFixed(2) : String(v);
 
 const POLLS = [
   {id:"p1", q:"Best way to settle a derby?", o:["Early goal and park the bus","Attack from the first whistle","Win it late"], seed:[34,98,61]},
@@ -260,19 +269,19 @@ function viewPolls(){
 function viewCompare(){
   const [a,b]=S.cmp; const A=PLAYERS[a], B=PLAYERS[b];
   const opts=i=>PLAYERS.map((p,k)=>`<option value="${k}" ${k===i?"selected":""}>${esc(p.n)}</option>`).join("");
-  const rows=STAT_ROWS.map(([k,label])=>{
+  const rows=STAT_ROWS.map(([k,label,showWin])=>{
     const max=Math.max(A[k],B[k])||1;
-    const wa=A[k]>B[k], wb=B[k]>A[k];
+    const wa=showWin&&A[k]>B[k], wb=showWin&&B[k]>A[k];
     return `<div class="stat"><div class="lab">${label}</div><div class="bars">
-      <div class="bar l ${wa?"win":""}"><i style="width:${A[k]/max*100}%"></i><b>${A[k]}</b></div>
-      <div class="bar r ${wb?"win":""}"><i style="width:${B[k]/max*100}%"></i><b>${B[k]}</b></div></div></div>`;
+      <div class="bar l ${wa?"win":""}"><i style="width:${A[k]/max*100}%"></i><b>${fmtStat(k,A[k])}</b></div>
+      <div class="bar r ${wb?"win":""}"><i style="width:${B[k]/max*100}%"></i><b>${fmtStat(k,B[k])}</b></div></div></div>`;
   }).join("");
-  return `<div class="wrap"><h2>Compare players</h2><p class="sub">Pick two players and see who comes out on top.</p>
-    <div class="note">Sample data: these players and numbers are made up for the demo.</div>
+  return `<div class="wrap"><h2>Compare top scorers</h2><p class="sub">Premier League 2026/27. Pick two players and see who comes out on top.</p>
+    <div class="note">Real stats: goals and appearances, as of ${esc(STATS_AS_OF)}. Source: ${esc(STATS_SOURCE)}. Other sites may count slightly differently.</div>
     <div class="card">
       <div class="bars" style="gap:8px">
-        <div><select id="cmpA">${opts(a)}</select><div class="muted" style="margin-top:4px">${esc(A.pos)}</div></div>
-        <div><select id="cmpB">${opts(b)}</select><div class="muted" style="margin-top:4px">${esc(B.pos)}</div></div>
+        <div><select id="cmpA">${opts(a)}</select><div class="muted" style="margin-top:4px">${esc(A.club)}</div></div>
+        <div><select id="cmpB">${opts(b)}</select><div class="muted" style="margin-top:4px">${esc(B.club)}</div></div>
       </div>
       ${rows}
       <div style="margin-top:8px"><button class="ghost full" data-act="sharecmp">Share this comparison</button></div>
@@ -351,7 +360,7 @@ document.addEventListener("click",e=>{
     save();render();
   }else if(act==="sharecmp"){
     const [a,b]=S.cmp,A=PLAYERS[a],B=PLAYERS[b];
-    const txt=`${A.n} vs ${B.n} on PitchTalk: goals ${A.goals}-${B.goals}, assists ${A.assists}-${B.assists}, tackles ${A.tackles}-${B.tackles}. Who's better?`;
+    const txt=`${A.n} vs ${B.n} on PitchTalk (Premier League 2026/27): goals ${A.goals}-${B.goals} in ${A.apps} and ${B.apps} games. Who's better?`;
     if(navigator.share){navigator.share({text:txt}).catch(()=>{})}
     else if(navigator.clipboard){navigator.clipboard.writeText(txt).then(()=>toast("Copied to clipboard"),()=>toast("Could not copy"))}
   }else if(act==="post"){
